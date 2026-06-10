@@ -12,9 +12,6 @@ SMTP_PORT = 465
 SENDER = "tingshurain@163.com"
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 
-IMAP_SERVER = "imap.163.com"
-IMAP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
-
 OUTLOOK_SERVER = "imap-mail.outlook.com"
 OUTLOOK_SENDER = "tingshurain@outlook.com"
 OUTLOOK_PASSWORD = os.environ.get("OUTLOOK_PASSWORD", "")
