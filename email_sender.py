@@ -4,10 +4,9 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
-SMTP_SERVER = "smtp.163.com"
-SMTP_PORT = 465
-SENDER = "tingshurain@163.com"
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+IMAP_SERVER = "imap.126.com"
+IMAP_SENDER = "tingshurain@126.com"
+IMAP_PASSWORD = os.environ.get("IMAP_PASSWORD", "")
 
 def send_email(to: str, subject: str, body: str) -> dict:
     try:
@@ -33,7 +32,7 @@ IMAP_SERVER = "imap.163.com"
 def read_emails(limit: int = 5) -> list:
     try:
         mail = imaplib.IMAP4_SSL(IMAP_SERVER)
-        mail.login(SENDER, SMTP_PASSWORD)
+        mail.login(IMAP_SENDER, IMAP_PASSWORD)
         typ, data = mail.select("INBOX", readonly=True)
         if typ != "OK":
             return [{"error": f"选择收件箱失败: {typ} {data}"}]
