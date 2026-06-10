@@ -1876,7 +1876,28 @@ async def api_import_review(request):
 
     return JSONResponse({"applied": applied, "errors": errors})
 
-
+# =============================================================
+# Tool 7: send_email — 发送邮件
+# =============================================================
+@mcp.tool()
+async def send_email(
+    to: str,
+    subject: str,
+    body: str,
+) -> str:
+    """
+    Send an email from tingshurain@163.com to the specified address.
+    从听澍的邮箱发送邮件。
+    - to: 收件人邮箱
+    - subject: 邮件标题
+    - body: 邮件正文
+    """
+    from email_sender import send_email as _send
+    result = _send(to=to, subject=subject, body=body)
+    if result["success"]:
+        return result["message"]
+    else:
+        return f"发送失败：{result['error']}"
 # =============================================================
 # /api/status — system status for Dashboard settings tab
 # /api/status — Dashboard 设置页用系统状态
