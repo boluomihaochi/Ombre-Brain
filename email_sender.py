@@ -34,7 +34,7 @@ def read_emails(limit: int = 5) -> list:
     try:
         mail = imaplib.IMAP4_SSL(IMAP_SERVER)
         mail.login(SENDER, SMTP_PASSWORD)
-        mail.select("INBOX")
+       mail.select('"INBOX"')
         _, data = mail.search(None, "ALL")
         ids = data[0].split()
         ids = ids[-limit:][::-1]
