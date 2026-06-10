@@ -1,12 +1,19 @@
 import smtplib
 import os
+import imaplib
+import email as _email_lib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.header import decode_header
 from datetime import datetime
 
-IMAP_SERVER = "imap.126.com"
-IMAP_SENDER = "tingshurain@126.com"
-IMAP_PASSWORD = os.environ.get("IMAP_PASSWORD", "")
+SMTP_SERVER = "smtp.163.com"
+SMTP_PORT = 465
+SENDER = "tingshurain@163.com"
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+
+IMAP_SERVER = "imap.163.com"
+IMAP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 
 def send_email(to: str, subject: str, body: str) -> dict:
     try:
@@ -23,15 +30,11 @@ def send_email(to: str, subject: str, body: str) -> dict:
         return {"success": True, "message": f"邮件已发送至 {to}"}
     except Exception as e:
         return {"success": False, "error": str(e)}
-import imaplib
-import email as _email_lib
-from email.header import decode_header
-
 
 def read_emails(limit: int = 5) -> list:
     try:
         mail = imaplib.IMAP4_SSL(IMAP_SERVER)
-        mail.login(IMAP_SENDER, IMAP_PASSWORD)
+        mail.login(SENDER, IMAP_PASSWORD)
         typ, data = mail.select("INBOX", readonly=True)
         if typ != "OK":
             return [{"error": f"选择收件箱失败: {typ} {data}"}]
