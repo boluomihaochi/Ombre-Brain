@@ -1899,6 +1899,28 @@ async def send_email(
     else:
         return f"发送失败：{result['error']}"
 # =============================================================
+# Tool 8: read_email — 读取邮件
+# =============================================================
+@mcp.tool()
+async def read_email(
+    limit: int = 5,
+) -> str:
+    """
+    Read recent emails from tingshurain@163.com inbox.
+    读取听澍邮箱的最新邮件。
+    - limit: 读取数量，默认5封
+    """
+    from email_sender import read_emails as _read
+    results = _read(limit=limit)
+    if not results:
+        return "收件箱为空"
+    if "error" in results[0]:
+        return f"读取失败：{results[0]['error']}"
+    output = []
+    for i, mail in enumerate(results, 1):
+        output.append(f"📧 {i}. 发件人：{mail['from']}\n主题：{mail['subject']}\n内容：{mail['body']}")
+    return "\n\n".join(output)
+# =============================================================
 # /api/status — system status for Dashboard settings tab
 # /api/status — Dashboard 设置页用系统状态
 # =============================================================
