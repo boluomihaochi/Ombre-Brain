@@ -27,7 +27,6 @@ import imaplib
 import email as _email_lib
 from email.header import decode_header
 
-IMAP_SERVER = "imap.163.com"
 
 def read_emails(limit: int = 5) -> list:
     try:
