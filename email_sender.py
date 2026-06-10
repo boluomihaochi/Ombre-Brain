@@ -15,6 +15,10 @@ SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 IMAP_SERVER = "imap.163.com"
 IMAP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 
+OUTLOOK_SERVER = "imap-mail.outlook.com"
+OUTLOOK_SENDER = "tingshurain@outlook.com"
+OUTLOOK_PASSWORD = os.environ.get("OUTLOOK_PASSWORD", "")
+
 def send_email(to: str, subject: str, body: str) -> dict:
     try:
         msg = MIMEMultipart()
@@ -33,8 +37,8 @@ def send_email(to: str, subject: str, body: str) -> dict:
 
 def read_emails(limit: int = 5) -> list:
     try:
-        mail = imaplib.IMAP4_SSL(IMAP_SERVER)
-        mail.login(SENDER, IMAP_PASSWORD)
+        mail = imaplib.IMAP4_SSL(OUTLOOK_SERVER)
+        mail.login(OUTLOOK_SENDER, OUTLOOK_PASSWORD)
         typ, data = mail.select("INBOX", readonly=True)
         if typ != "OK":
             return [{"error": f"选择收件箱失败: {typ} {data}"}]
