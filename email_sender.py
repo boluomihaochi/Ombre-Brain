@@ -34,9 +34,11 @@ def read_emails(limit: int = 5) -> list:
     try:
         mail = imaplib.IMAP4_SSL(IMAP_SERVER)
         mail.login(SENDER, SMTP_PASSWORD)
-        status, _ = mail.select("INBOX")
-        _, data = mail.search(None, "ALL")
-        ids = data[0].split()
+        typ, data = mail.select("INBOX", readonly=True)
+        if typ != "OK":
+            return [{"error": f"选择收件箱失败: {typ} {data}"}]
+        _, search_data = mail.search(None, "ALL")
+        ids = search_data[0].split()
         ids = ids[-limit:][::-1]
         results = []
         for uid in ids:
