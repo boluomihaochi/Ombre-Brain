@@ -112,6 +112,11 @@ mcp = FastMCP(
     port=OMBRE_PORT,
 )
 
+# --- 听澍推送系统 ---
+import pusher
+pusher.register_tools(mcp)
+pusher.start_scheduler()
+
 
 # =============================================================
 # Dashboard Auth — simple cookie-based session auth
@@ -506,6 +511,7 @@ async def breath(
 ) -> str:
     """检索/浮现记忆。不传query或传空=自动浮现,有query=关键词检索。max_tokens控制返回总token上限(默认10000)。domain逗号分隔,valence/arousal 0~1(-1忽略)。max_results控制返回数量上限(默认20,最大50)。importance_min>=1时按重要度批量拉取(不走语义搜索,按importance降序返回最多20条)。"""
     await decay_engine.ensure_started()
+    pusher.touch_seen()
     max_results = min(max_results, 50)
     max_tokens = min(max_tokens, 20000)
 
@@ -645,14 +651,13 @@ async def breath(
                 continue
 
         if not pinned_results and not dynamic_results:
-            return "权重池平静，没有需要处理的记忆。"
-
+            return pusher.time_header() + "权重池平静，没有需要处理的记忆。"
         parts = []
         if pinned_results:
             parts.append("=== 核心准则 ===\n" + "\n---\n".join(pinned_results))
         if dynamic_results:
             parts.append("=== 浮现记忆 ===\n" + "\n---\n".join(dynamic_results))
-        return "\n\n".join(parts)
+        return pusher.time_header() + "\n\n".join(parts)
 
     # --- Feel retrieval: domain="feel" is a special channel ---
     # --- Feel 检索：domain="feel" 是独立入口 ---
