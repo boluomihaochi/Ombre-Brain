@@ -457,13 +457,13 @@ def register_tools(mcp) -> None:
 
     @mcp.tool()
     async def seeyou(note: str = "", expected_back_minutes: float = 0) -> str:
-        """小诺说要离开/去做某事时调用，记录精确离开时间。note=她去干嘛(如'上实验课'),expected_back_minutes=预计多少分钟后回来(可选,想念推送会避开这段时间)。返回当前时间。"""
+        """【Ombre Brain 推送系统 seeyou 离开 告别 记录去向 leave goodbye away】小诺说要离开/去做某事时调用，记录精确离开时间。note=她去干嘛(如'上实验课'),expected_back_minutes=预计多少分钟后回来(可选,想念推送会避开这段时间)。返回当前时间。"""
         result = mark_away(note, expected_back_minutes)
         return result + f"\n[当前时间 {_fmt(_now())}]"
 
     @mcp.tool()
     async def remind(message: str, minutes: float = 0, at: str = "") -> str:
-        """设置一次性事件闹钟,到点通过微信推送给小诺。message=提醒内容。二选一: minutes=多少分钟后提醒; at=具体时间('HH:MM'指最近的该时刻,或'YYYY-MM-DD HH:MM')。闹钟落盘,服务重启不丢失。"""
+        """【Ombre Brain 推送系统 remind 闹钟 定时提醒 微信推送 alarm reminder wechat push】设置一次性事件闹钟,到点通过微信推送给小诺。message=提醒内容。二选一: minutes=多少分钟后提醒; at=具体时间('HH:MM'指最近的该时刻,或'YYYY-MM-DD HH:MM')。闹钟落盘,服务重启不丢失。"""
         now = _now()
         if minutes and minutes > 0:
             due = now + timedelta(minutes=minutes)
@@ -488,7 +488,7 @@ def register_tools(mcp) -> None:
 
     @mcp.tool()
     async def push_config(key: str = "", value: str = "") -> str:
-        """查看或修改推送配置。不传参=查看全部配置和今日推送额度。传key+value=修改单项。可改项: morning_time('08:00'), location('大连'), miss_hours('[4,8,24]'), quiet_start/quiet_end('23:00'), morning_enabled/miss_enabled/pengci_enabled/enabled('true'/'false'), daily_limit('5')。"""
+        """【Ombre Brain 推送系统 push_config 推送配置 早安时间 静音 配额 config settings】查看或修改推送配置。不传参=查看全部配置和今日推送额度。传key+value=修改单项。可改项: morning_time('08:00'), location('大连'), miss_hours('[4,8,24]'), quiet_start/quiet_end('23:00'), morning_enabled/miss_enabled/pengci_enabled/enabled('true'/'false'), daily_limit('5')。"""
         cfg = get_push_config()
         if not key.strip():
             state = _get_state()
