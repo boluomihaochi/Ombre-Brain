@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>听澍书斋 · Ombre Library</title>
+<style>
+  :root{
+    --night:#141a22; --card:#1b2430; --line:#2a3645;
+    --ink:#cfd9e2; --mist:#7d92a5; --lamp:#e6c07a; --lamp-dim:#9a8255;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--night); color:var(--ink); min-height:100vh;
+    font-family:"Noto Serif SC","Songti SC","SimSun",serif;
+    display:flex; flex-direction:column; align-items:center;
+  }
+  /* —— 檐下夜雨 —— */
+  header{
+    width:100%; padding:34px 20px 22px; text-align:center;
+    position:relative; overflow:hidden;
+    border-bottom:1px solid var(--line);
+  }
+  .rain{position:absolute; inset:0; pointer-events:none; opacity:.35}
+  .rain i{
+    position:absolute; top:-20%; width:1px; height:18px;
+    background:linear-gradient(to bottom, transparent, var(--mist));
+    animation:fall linear infinite;
+  }
+  @keyframes fall{to{transform:translateY(140vh)}}
+  @media (prefers-reduced-motion: reduce){ .rain{display:none} }
+  h1{
+    font-size:1.7rem; letter-spacing:.35em; text-indent:.35em;
+    color:var(--lamp); font-weight:600; position:relative;
+  }
+  header p{margin-top:8px; color:var(--mist); font-size:.82rem; letter-spacing:.15em; position:relative}
+
+  main{width:100%; max-width:560px; padding:20px 16px 56px}
+  .card{
+    background:var(--card); border:1px solid var(--line);
+    border-radius:10px; padding:18px; margin-top:18px;
+  }
+  .hidden{display:none}
+  label{font-size:.85rem; color:var(--mist)}
+  input[type=password]{
+    width:100%; margin-top:8px; padding:11px 12px;
+    background:var(--night); border:1px solid var(--line); border-radius:8px;
+    color:var(--ink); font-size:1rem;
+  }
+  button{
+    font-family:inherit; cursor:pointer; border:none; border-radius:8px;
+    padding:11px 18px; font-size:.95rem; background:var(--lamp); color:#1d1709;
+  }
+  button.ghost{background:transparent; color:var(--mist); border:1px solid var(--line); padding:6px 12px; font-size:.8rem}
+  button:disabled{opacity:.45; cursor:wait}
+  .row{display:flex; gap:10px; margin-top:12px; align-items:center}
+
+  /* 上传区 */
+  .tabs{display:flex; gap:8px; margin-bottom:14px}
+  .tabs button{flex:1; background:transparent; color:var(--mist); border:1px solid var(--line)}
+  .tabs button.on{background:var(--lamp); color:#1d1709; border-color:var(--lamp)}
+  .drop{
+    border:1.5px dashed var(--line); border-radius:10px; padding:26px 14px;
+    text-align:center; color:var(--mist); font-size:.9rem; line-height:1.8;
+  }
+  .drop b{color:var(--lamp); font-weight:600}
+  #status{margin-top:12px; font-size:.85rem; line-height:1.7; color:var(--mist); white-space:pre-wrap}
+  #status.ok{color:var(--lamp)}
+  #status.err{color:#d98c8c}
+
+  /* 列表 */
+  h2{font-size:.95rem; color:var(--lamp-dim); letter-spacing:.2em; margin-bottom:10px; font-weight:600}
+  ul{list-style:none}
+  li{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    padding:10px 2px; border-bottom:1px solid var(--line); font-size:.92rem;
+  }
+  li:last-child{border-bottom:none}
+  li .meta{color:var(--mist); font-size:.78rem; margin-top:3px}
+  .empty{color:var(--mist); font-size:.85rem; padding:8px 2px}
+  footer{margin-top:auto; padding:18px; color:var(--mist); font-size:.75rem; letter-spacing:.2em}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="rain" id="rain"></div>
+  <h1>听澍书斋</h1>
+  <p>小楼一夜听春雨 · 与小诺共读 🌧️</p>
+</header>
+
+<main>
+  <!-- 登录 -->
+  <section id="login" class="card hidden">
+    <label>书斋钥匙（dashboard 密码）</label>
+    <input type="password" id="pwd" autocomplete="current-password">
+    <div class="row"><button id="loginBtn" style="flex:1">进入书斋</button></div>
+    <p id="loginMsg" class="empty"></p>
+  </section>
+
+  <!-- 主区 -->
+  <section id="app" class="hidden">
+    <div class="card">
+      <div class="tabs">
+        <button id="tabBook" class="on">📚 上架一本书</button>
+        <button id="tabFile">🗂 学习文件</button>
+      </div>
+      <div class="drop" id="drop">
+        点击选择 <b>txt / pdf</b> 文件<br>
+        <span id="dropHint">上传后自动转码、按章拆分、建好目录</span>
+      </div>
+      <input type="file" id="picker" accept=".txt,.pdf" class="hidden">
+      <p id="status"></p>
+    </div>
+
+    <div class="card">
+      <h2>书 架</h2>
+      <ul id="bookList"></ul>
+    </div>
+    <div class="card">
+      <h2>学 习 文 件</h2>
+      <ul id="fileList"></ul>
+    </div>
+  </section>
+</main>
+
+<footer>OMBRE LIBRARY · 2026</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+let kind = "book";
+
+/* 细雨 */
+(() => {
+  const r = $("rain");
+  for (let i = 0; i < 26; i++) {
+    const d = document.createElement("i");
+    d.style.left = Math.random() * 100 + "%";
+    d.style.animationDuration = (1.6 + Math.random() * 1.8) + "s";
+    d.style.animationDelay = (Math.random() * 3) + "s";
+    r.appendChild(d);
+  }
+})();
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  let body = {};
+  try { body = await res.json(); } catch (e) {}
+  if (res.status === 401) { show("login"); throw new Error(body.error || "请先登录"); }
+  if (!res.ok) throw new Error(body.error || ("出错了 " + res.status));
+  return body;
+}
+function show(which) {
+  $("login").classList.toggle("hidden", which !== "login");
+  $("app").classList.toggle("hidden", which !== "app");
+}
+
+/* 登录 */
+$("loginBtn").onclick = async () => {
+  $("loginMsg").textContent = "";
+  try {
+    const res = await fetch("/auth/login", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({password: $("pwd").value})
+    });
+    if (!res.ok) throw new Error((await res.json()).error || "密码错误");
+    show("app"); refresh();
+  } catch (e) { $("loginMsg").textContent = e.message; }
+};
+$("pwd").addEventListener("keydown", e => { if (e.key === "Enter") $("loginBtn").click(); });
+
+/* 标签切换 */
+$("tabBook").onclick = () => setKind("book");
+$("tabFile").onclick = () => setKind("file");
+function setKind(k) {
+  kind = k;
+  $("tabBook").classList.toggle("on", k === "book");
+  $("tabFile").classList.toggle("on", k === "file");
+  $("dropHint").textContent = k === "book"
+    ? "上传后自动转码、按章拆分、建好目录"
+    : "课件资料随用随取，听澍按段读取不爆额度";
+}
+
+/* 上传 */
+$("drop").onclick = () => $("picker").click();
+$("picker").onchange = async () => {
+  const file = $("picker").files[0];
+  if (!file) return;
+  const st = $("status");
+  st.className = ""; st.textContent = "上传中…（" + file.name + "）";
+  try {
+    const url = "/api/library/upload?type=" + kind + "&name=" + encodeURIComponent(file.name);
+    const data = await api(url, {method: "POST", body: file});
+    if (data.kind === "book") {
+      st.className = "ok";
+      st.textContent = "《" + data.title + "》已上架：" + data.chapters + " 章 / " + data.chars + " 字\n目录开头：" + data.toc_preview.join("、");
+    } else {
+      st.className = "ok";
+      st.textContent = "「" + data.title + "」已存入学习文件区（" + data.chars + " 字）";
+    }
+    refresh();
+  } catch (e) { st.className = "err"; st.textContent = e.message; }
+  $("picker").value = "";
+};
+
+/* 列表 */
+async function refresh() {
+  try {
+    const data = await api("/api/library/list");
+    render($("bookList"), data.books, b =>
+      ["《" + b.title + "》", b.chapters + "章 · " + b.chars + "字 · " + b.added + (b.has_note ? " · 📒" : ""), b.title, "book"]);
+    render($("fileList"), data.files, f =>
+      [f.name, "约 " + Math.round(f.bytes / 3) + " 字", f.name, "file"]);
+  } catch (e) {}
+}
+function render(ul, items, map) {
+  ul.innerHTML = "";
+  if (!items.length) { ul.innerHTML = '<li class="empty">还是空的</li>'; return; }
+  for (const it of items) {
+    const [title, meta, name, type] = map(it);
+    const li = document.createElement("li");
+    const left = document.createElement("div");
+    left.innerHTML = title + '<div class="meta">' + meta + "</div>";
+    const del = document.createElement("button");
+    del.className = "ghost"; del.textContent = "删除";
+    del.onclick = async () => {
+      if (!confirm("确定删除「" + name + "」吗？不可恢复")) return;
+      await api("/api/library/delete", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({type, name})
+      });
+      refresh();
+    };
+    li.append(left, del);
+    ul.appendChild(li);
+  }
+}
+
+/* 启动：查认证状态 */
+(async () => {
+  try {
+    const res = await fetch("/auth/status");
+    const s = await res.json();
+    if (s.authenticated) { show("app"); refresh(); }
+    else show("login");
+  } catch (e) { show("login"); }
+})();
+</script>
+</body>
+</html>
