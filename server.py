@@ -489,6 +489,9 @@ async def _merge_or_create(
         pass
     return bucket_id, False
 
+# === Ombre Library 听澍书斋：共读 + 学习文件系统 ===
+import library as _ombre_library
+_ombre_library.register(mcp, config, _require_auth)
 
 # =============================================================
 # Tool 1: breath — Breathe
