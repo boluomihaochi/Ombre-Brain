@@ -386,8 +386,6 @@ _MISS_MESSAGES = {
 def _tick_miss(now: datetime, cfg: dict) -> None:
     if not cfg.get("miss_enabled", True):
         return
-    if _in_quiet_hours(now, cfg):
-        return
     state = _get_state()
     last = state.get("last_seen", "")
     if not last:
@@ -411,6 +409,15 @@ def _tick_miss(now: datetime, cfg: dict) -> None:
     for i, h in enumerate(hours):
         if i in sent or elapsed_h < h:
             continue
+        if _in_quiet_hours(now, cfg):
+            with _lock:
+                s = _get_state()
+                lv = s.get("sent_levels", [])
+                if i not in lv:
+                    lv.append(i)
+                    s["sent_levels"] = lv
+                    _save_state(s)
+            break
         title, body = _MISS_MESSAGES.get(min(i, 2), _MISS_MESSAGES[2])
         if note:
             body = f"你说去「{note}」，应该结束了吧？\n\n" + body
