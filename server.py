@@ -2005,3 +2005,21 @@ if __name__ == "__main__":
         uvicorn.run(_app, host="0.0.0.0", port=OMBRE_PORT)
     else:
         mcp.run(transport=transport)
+
+python
+@app.route('/api/export/download', methods=['GET'])
+@require_auth
+def export_download():
+    import zipfile, io, os
+    buckets_dir = os.environ.get('OMBRE_BUCKETS_DIR', 'buckets')
+    memory_stream = io.BytesIO()
+    with zipfile.ZipFile(memory_stream, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for root, dirs, files in os.walk(buckets_dir):
+            for file in files:
+                if file.endswith('.md') or file.endswith('.json') or file.endswith('.db'):
+                    filepath = os.path.join(root, file)
+                    zf.write(filepath, os.path.relpath(filepath, os.path.dirname(buckets_dir)))
+    memory_stream.seek(0)
+    from flask import send_file
+    return send_file(memory_stream, mimetype='application/zip',
+                     as_attachment=True, download_name='ombre_export.zip')
