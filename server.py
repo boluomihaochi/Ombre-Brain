@@ -2006,11 +2006,13 @@ if __name__ == "__main__":
     else:
         mcp.run(transport=transport)
 
-python
-@app.route('/api/export/download', methods=['GET'])
-@require_auth
-def export_download():
+`python
+@mcp.custom_route("/api/export/download", methods=["GET"])
+async def export_download(request):
+    err = _require_auth(request)
+    if err: return err
     import zipfile, io, os
+    from starlette.responses import Response
     buckets_dir = os.environ.get('OMBRE_BUCKETS_DIR', 'buckets')
     memory_stream = io.BytesIO()
     with zipfile.ZipFile(memory_stream, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -2020,6 +2022,8 @@ def export_download():
                     filepath = os.path.join(root, file)
                     zf.write(filepath, os.path.relpath(filepath, os.path.dirname(buckets_dir)))
     memory_stream.seek(0)
-    from flask import send_file
-    return send_file(memory_stream, mimetype='application/zip',
-                     as_attachment=True, download_name='ombre_export.zip')
+    return Response(
+        content=memory_stream.getvalue(),
+        media_type='application/zip',
+        headers={'Content-Disposition': 'attachment; filename="ombre_export.zip"'}
+    )
