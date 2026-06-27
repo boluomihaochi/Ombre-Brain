@@ -152,6 +152,8 @@
   }
 
   .bucket-list { display: flex; flex-direction: column; gap: 8px; }
+  .sort-btn { background: none; border: 1px solid #444; color: #888; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 12px; }
+  .sort-btn.active { border-color: #9A7B4F; color: #9A7B4F; background: rgba(154,123,79,.1); }
   .bucket-row {
     display: grid;
     grid-template-columns: 32px 200px 100px 80px 60px 100px 1fr;
@@ -621,6 +623,12 @@
 
 <div class="content" id="list-view">
   <div class="filters" id="filters"></div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;color:#888">
+    <span>排序：</span>
+    <button class="sort-btn active" data-sort="score" onclick="setSort('score',this)">权重</button>
+    <button class="sort-btn" data-sort="created" onclick="setSort('created',this)">创建时间↓</button>
+    <button class="sort-btn" data-sort="last_active" onclick="setSort('last_active',this)">活跃时间↓</button>
+  </div>
   <div class="bucket-list" id="bucket-list">
     <div class="loading">加载中…</div>
   </div>
@@ -1133,7 +1141,25 @@ function filterBuckets(buckets) {
   return buckets;
 }
 
+var currentSort = 'score';
+function setSort(s, btn) {
+  currentSort = s;
+  document.querySelectorAll('.sort-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  renderBuckets(filterBuckets(allBuckets));
+}
+function sortBuckets(buckets) {
+  var arr = buckets.slice();
+  if (currentSort === 'created') {
+    arr.sort(function(a, b) { return (b.created || '').localeCompare(a.created || ''); });
+  } else if (currentSort === 'last_active') {
+    arr.sort(function(a, b) { return (b.last_active || b.created || '').localeCompare(a.last_active || a.created || ''); });
+  }
+  return arr;
+}
+
 function renderBuckets(buckets) {
+  buckets = sortBuckets(buckets);
   var list = document.getElementById('bucket-list');
   if (!buckets.length) {
     list.innerHTML = '<div class="loading">没有记忆桶</div>';
