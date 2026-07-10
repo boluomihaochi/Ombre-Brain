@@ -2017,7 +2017,86 @@ async def letter_read(
 
 
 # =============================================================
-# Tool 11: I — 自我认知存取
+# Tool 11: plan — 登记承诺/约定，不衰减
+# =============================================================
+@mcp.tool()
+async def plan(
+    content: str = "",
+    status: str = "active",
+    update_id: str = "",
+    read: bool = False,
+) -> str:
+    """
+    【Ombre Brain 计划 承诺 约定 plan 待办 不衰减 记住 promise todo】
+    登记约定或承诺，永久不衰减；或更新/读取已有承诺。
+    - content: 承诺内容（空则读取）
+    - status: "active"=进行中 / "resolved"=已完成 / "abandoned"=放弃
+    - update_id: 要更新状态的桶ID（配合status使用）
+    - read: True=读取所有承诺
+    """
+    if update_id:
+        ok = await bucket_mgr.update(update_id, resolved=(status == "resolved"))
+        label = "✅ 完成" if status == "resolved" else "🚫 放弃" if status == "abandoned" else "🔄 更新"
+        return f"{label} → {update_id}" if ok else f"找不到 {update_id}"
+
+    if read or not content.strip():
+        try:
+            all_buckets = await bucket_mgr.list_all(include_archive=False)
+        except Exception as e:
+            return f"读取失败: {e}"
+        plans = [
+            b for b in all_buckets
+            if "__plan__" in b.get("metadata", {}).get("tags", [])
+        ]
+        if not plans:
+            return "还没有任何承诺记录。"
+        active = [b for b in plans if not b.get("metadata", {}).get("resolved")]
+        done = [b for b in plans if b.get("metadata", {}).get("resolved")]
+        lines = []
+        if active:
+            lines.append(f"=== 进行中（{len(active)} 条）===")
+            for b in sorted(active, key=lambda b: b.get("metadata", {}).get("created", ""), reverse=True):
+                ts = (b.get("metadata", {}).get("created") or "")[:10]
+                lines.append(f"{ts} [{b['id']}] {b.get('content','').strip()[:120]}")
+        if done:
+            lines.append(f"\n=== 已完成（{len(done)} 条）===")
+            for b in done[:5]:
+                ts = (b.get("metadata", {}).get("created") or "")[:10]
+                lines.append(f"{ts} ✅ {b.get('content','').strip()[:80]}")
+        return "\n".join(lines) if lines else "还没有承诺记录。"
+
+    # --- 精确去重：同内容+active已存在则返回原ID ---
+    try:
+        all_buckets = await bucket_mgr.list_all(include_archive=False)
+        existing = next((
+            b for b in all_buckets
+            if "__plan__" in b.get("metadata", {}).get("tags", [])
+            and not b.get("metadata", {}).get("resolved")
+            and b.get("content", "").strip() == content.strip()
+        ), None)
+        if existing:
+            return f"📌 已有相同承诺 → {existing['id']}"
+    except Exception:
+        pass
+
+    try:
+        bucket_id = await bucket_mgr.create(
+            content=content.strip(),
+            tags=["__plan__"],
+            importance=7,
+            domain=["plan"],
+            valence=0.6,
+            arousal=0.5,
+            name=None,
+            bucket_type="permanent",
+        )
+    except Exception as e:
+        return f"登记失败: {e}"
+    return f"📌 plan → {bucket_id}"
+
+
+# =============================================================
+# Tool 12: I — 自我认知存取
 # =============================================================
 _I_VALID_ASPECTS = {"nature", "values", "patterns", "limits", "becoming", "uncertainty", "stance"}
 
