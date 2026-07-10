@@ -129,6 +129,7 @@ class BucketManager:
         name: str = None,
         pinned: bool = False,
         protected: bool = False,
+        feeling: str = "",
     ) -> str:
         """
         Create a new memory bucket, return bucket ID.
@@ -171,6 +172,8 @@ class BucketManager:
             metadata["pinned"] = True
         if protected:
             metadata["protected"] = True
+        if feeling:
+            metadata["feeling"] = feeling.strip()
 
         # --- Assemble Markdown file (frontmatter + body) ---
         # --- 组装 Markdown 文件 ---
@@ -300,6 +303,8 @@ class BucketManager:
             post["digested"] = bool(kwargs["digested"])
         if "model_valence" in kwargs:
             post["model_valence"] = max(0.0, min(1.0, float(kwargs["model_valence"])))
+        if "feeling" in kwargs and kwargs["feeling"]:
+            post["feeling"] = str(kwargs["feeling"]).strip()
 
         # --- Auto-refresh activation time / 自动刷新激活时间 ---
         post["last_active"] = now_iso()
