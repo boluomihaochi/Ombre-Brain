@@ -2017,7 +2017,189 @@ async def letter_read(
 
 
 # =============================================================
-# Tool 11: comment_bucket — 年轮评论，追加到源记忆的感受层
+# Tool 11~13: Darkroom — 私密暗房
+# =============================================================
+import json as _json
+_DARKROOM_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "darkroom")
+os.makedirs(_DARKROOM_DIR, exist_ok=True)
+
+def _dr_path(room_id: str) -> str:
+    return os.path.join(_DARKROOM_DIR, f"{room_id}.json")
+
+def _dr_active_id() -> str | None:
+    """Return the id of the current active room, if any."""
+    for fname in os.listdir(_DARKROOM_DIR):
+        if not fname.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(_DARKROOM_DIR, fname), encoding="utf-8") as f:
+                room = _json.load(f)
+            if room.get("active"):
+                return room["id"]
+        except Exception:
+            continue
+    return None
+
+def _dr_write(room: dict) -> None:
+    import tempfile
+    path = _dr_path(room["id"])
+    dir_ = os.path.dirname(path)
+    fd, tmp = tempfile.mkstemp(suffix=".tmp", dir=dir_)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            _json.dump(room, f, ensure_ascii=False, indent=2)
+            f.flush(); os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except Exception:
+        try: os.unlink(tmp)
+        except OSError: pass
+        raise
+
+def _dr_parse_lock(lock_for: str) -> str | None:
+    """Parse '6h'/'3d' → ISO unlock_at string, or None."""
+    if not lock_for:
+        return None
+    from datetime import datetime, timedelta, timezone
+    lock_for = lock_for.strip().lower()
+    try:
+        if lock_for.endswith("h"):
+            delta = timedelta(hours=float(lock_for[:-1]))
+        elif lock_for.endswith("d"):
+            delta = timedelta(days=float(lock_for[:-1]))
+        elif lock_for.endswith("m"):
+            delta = timedelta(minutes=float(lock_for[:-1]))
+        else:
+            return None
+        return (datetime.now(timezone.utc) + delta).isoformat()
+    except Exception:
+        return None
+
+@mcp.tool()
+async def darkroom_enter(
+    content: str,
+    new_room: bool = True,
+    lock_for: str = "",
+) -> str:
+    """
+    【Ombre Brain 暗房 darkroom 私密 内省 darkroom_enter 写入 独处 思考】
+    写入暗房——存放未想透、不对外的内在反思，不参与普通记忆检索，不给用户看。
+    - content: 要写下的内容
+    - new_room: True=新开一个房间（默认），False=续写当前active房间
+    - lock_for: 时间锁，格式如 "6h"/"3d"/"30m"，锁定期间只显示门牌不显示正文
+    """
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    unlock_at = _dr_parse_lock(lock_for)
+
+    if not new_room:
+        active_id = _dr_active_id()
+        if active_id:
+            path = _dr_path(active_id)
+            try:
+                with open(path, encoding="utf-8") as f:
+                    room = _json.load(f)
+                room["content"] = room.get("content", "") + "\n\n---\n" + content
+                room["updated"] = now
+                if unlock_at:
+                    room["unlock_at"] = unlock_at
+                _dr_write(room)
+                return f"🌑 续写暗房 {active_id}"
+            except Exception as e:
+                return f"续写失败: {e}"
+
+    # 关闭当前 active 房间
+    old_active = _dr_active_id()
+    if old_active:
+        try:
+            path = _dr_path(old_active)
+            with open(path, encoding="utf-8") as f:
+                room = _json.load(f)
+            room["active"] = False
+            _dr_write(room)
+        except Exception:
+            pass
+
+    import secrets
+    room_id = "dr_" + secrets.token_hex(6)
+    room = {
+        "id": room_id,
+        "created": now,
+        "updated": now,
+        "content": content,
+        "active": True,
+        "unlock_at": unlock_at,
+    }
+    try:
+        _dr_write(room)
+    except Exception as e:
+        return f"写入失败: {e}"
+    lock_note = f"（{lock_for}后解锁）" if lock_for else ""
+    return f"🌑 暗房 {room_id}{lock_note}"
+
+
+@mcp.tool()
+async def darkroom_rooms(show_all: bool = False) -> str:
+    """
+    【Ombre Brain 暗房 darkroom_rooms 门牌 列表 查看暗房列表】
+    列出暗房房间门牌——只显示ID和时间，不显示正文。
+    - show_all: False=只显示active房间，True=显示全部
+    """
+    from datetime import datetime, timezone
+    rooms = []
+    for fname in sorted(os.listdir(_DARKROOM_DIR), reverse=True):
+        if not fname.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(_DARKROOM_DIR, fname), encoding="utf-8") as f:
+                room = _json.load(f)
+            if not show_all and not room.get("active"):
+                continue
+            rooms.append(room)
+        except Exception:
+            continue
+    if not rooms:
+        return "暗房里没有房间。"
+    now = datetime.now(timezone.utc).isoformat()
+    lines = [f"=== 暗房（{len(rooms)} 间）==="]
+    for r in rooms:
+        unlock_at = r.get("unlock_at")
+        locked = unlock_at and unlock_at > now
+        status = "🔒" if locked else ("🌑" if r.get("active") else "◾")
+        lock_note = f" 解锁于 {unlock_at[:16]}" if locked else ""
+        lines.append(f"{status} {r['id']}  {r['created'][:10]}{lock_note}")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+async def darkroom_view(room_id: str = "") -> str:
+    """
+    【Ombre Brain 暗房 darkroom_view 查看 读取 解锁】
+    查看暗房内容——时间锁期间只返回门牌，锁定解除后才显示正文。
+    - room_id: 要查看的房间ID（空=查看当前active房间）
+    """
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+
+    if not room_id:
+        room_id = _dr_active_id()
+        if not room_id:
+            return "当前没有active暗房。"
+    path = _dr_path(room_id)
+    if not os.path.exists(path):
+        return f"找不到暗房 {room_id}"
+    try:
+        with open(path, encoding="utf-8") as f:
+            room = _json.load(f)
+    except Exception as e:
+        return f"读取失败: {e}"
+    unlock_at = room.get("unlock_at")
+    if unlock_at and unlock_at > now:
+        return f"🔒 {room_id} 仍在锁定中，解锁于 {unlock_at[:16]}"
+    return f"🌑 {room_id}  {room['created'][:10]}\n\n{room.get('content', '')}"
+
+
+# =============================================================
+# Tool 14: comment_bucket — 年轮评论，追加到源记忆的感受层
 # =============================================================
 @mcp.tool()
 async def comment_bucket(
