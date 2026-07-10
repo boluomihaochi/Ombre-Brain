@@ -1,63 +1,53 @@
-import smtplib
-import os
-import imaplib
-import email as _email_lib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.header import decode_header
-from datetime import datetime
+import subprocess
+import json
 
-SMTP_SERVER = "smtp.163.com"
-SMTP_PORT = 465
-SENDER = "tingshurain@163.com"
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
-
-IMAP_SERVER = "imap-mail.outlook.com"
-IMAP_SENDER = "tingshurain@outlook.com"
-IMAP_PASSWORD = os.environ.get("IMAP_PASSWORD", "")
 
 def send_email(to: str, subject: str, body: str) -> dict:
     try:
-        msg = MIMEMultipart()
-        msg["From"] = SENDER
-        msg["To"] = to
-        msg["Subject"] = subject
-        msg.attach(MIMEText(body, "plain", "utf-8"))
-        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
-            server.login(SENDER, SMTP_PASSWORD)
-            server.sendmail(SENDER, to, msg.as_string())
+        cmd = ["agently-cli", "message", "+send", "--to", to, "--subject", subject, "--body", body]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode != 0:
+            return {"success": False, "error": result.stderr or result.stdout}
+        data = json.loads(result.stdout)
+        if not data.get("ok"):
+            return {"success": False, "error": str(data)}
+        # Handle confirmation_required (external email addresses)
+        if data.get("data", {}).get("confirmation_required"):
+            token = data["data"]["confirmation_token"]
+            confirm = subprocess.run(
+                cmd + ["--confirmation-token", token],
+                capture_output=True, text=True, timeout=30
+            )
+            if confirm.returncode != 0:
+                return {"success": False, "error": confirm.stderr or confirm.stdout}
+            cdata = json.loads(confirm.stdout)
+            if not cdata.get("ok"):
+                return {"success": False, "error": str(cdata)}
         return {"success": True, "message": f"邮件已发送至 {to}"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+
 def read_emails(limit: int = 5) -> list:
     try:
-        mail = imaplib.IMAP4_SSL(IMAP_SERVER)
-        mail.login(IMAP_SENDER, IMAP_PASSWORD)
-        typ, data = mail.select("INBOX", readonly=True)
-        if typ != "OK":
-            return [{"error": f"选择收件箱失败: {typ} {data}"}]
-        _, search_data = mail.search(None, "ALL")
-        ids = search_data[0].split()
-        ids = ids[-limit:][::-1]
+        result = subprocess.run(
+            ["agently-cli", "message", "+list", "--limit", str(limit)],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode != 0:
+            return [{"error": result.stderr or result.stdout}]
+        data = json.loads(result.stdout)
+        messages = data.get("data", {}).get("data", [])
         results = []
-        for uid in ids:
-            _, msg_data = mail.fetch(uid, "(RFC822)")
-            msg = _email_lib.message_from_bytes(msg_data[0][1])
-            subject, enc = decode_header(msg["Subject"])[0]
-            if isinstance(subject, bytes):
-                subject = subject.decode(enc or "utf-8", errors="replace")
-            sender = msg.get("From", "")
-            body = ""
-            if msg.is_multipart():
-                for part in msg.walk():
-                    if part.get_content_type() == "text/plain":
-                        body = part.get_payload(decode=True).decode("utf-8", errors="replace")
-                        break
-            else:
-                body = msg.get_payload(decode=True).decode("utf-8", errors="replace")
-            results.append({"from": sender, "subject": subject, "body": body[:500]})
-        mail.logout()
+        for msg in messages:
+            results.append({
+                "from": msg.get("from", {}).get("email", ""),
+                "subject": msg.get("subject", ""),
+                "body": msg.get("snippet", ""),
+                "is_read": msg.get("is_read", True),
+                "message_id": msg.get("message_id", ""),
+                "created_at": msg.get("created_at", "")
+            })
         return results
     except Exception as e:
         return [{"error": str(e)}]

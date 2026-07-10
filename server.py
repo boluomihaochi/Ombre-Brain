@@ -1901,8 +1901,8 @@ async def send_email(
 ) -> str:
     """
    【Ombre Brain 邮件系统 send_email 发邮件 寄信 回信 send mail compose】
-    Send an email from tingshurain@163.com to the specified address.
-    从听澍的邮箱发送邮件。
+    Send an email from tingshu@agent.qq.com via agently-cli.
+    从听澍的 Agent Mail 邮箱发送邮件。
     - to: 收件人邮箱
     - subject: 邮件标题
     - body: 邮件正文
@@ -1922,8 +1922,8 @@ async def read_email(
 ) -> str:
     """
    【Ombre Brain 邮件系统 read_email 读邮件 收件箱 查信 inbox receive mail】
-    Read recent emails from tingshurain@163.com inbox.
-    读取听澍邮箱的最新邮件。
+    Read recent emails from tingshu@agent.qq.com via agently-cli.
+    读取听澍 Agent Mail 邮箱的最新邮件。
     - limit: 读取数量，默认5封
     """
     from email_sender import read_emails as _read
