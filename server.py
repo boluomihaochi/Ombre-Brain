@@ -1931,6 +1931,74 @@ async def read_email(
         output.append(f"📧 {i}. 发件人：{mail['from']}\n主题：{mail['subject']}\n内容：{mail['body']}")
     return "\n\n".join(output)
 # =============================================================
+# Tool 9: I — 自我认知存取
+# =============================================================
+_I_VALID_ASPECTS = {"nature", "values", "patterns", "limits", "becoming", "uncertainty", "stance"}
+
+@mcp.tool()
+async def I(
+    content: str = "",
+    aspect: str = "",
+    read: bool = False,
+    limit: int = 20,
+) -> str:
+    """
+    【Ombre Brain 自我认知 I 自省 self identity 本质 价值观 模式 stance becoming uncertainty】
+    存取 AI 自我认知记录，独立于普通记忆之外，不衰减，不被 breath 普通检索干扰。
+    - content: 要记录的自我认知内容（空则读取）
+    - aspect: 认知维度，可选 nature/values/patterns/limits/becoming/uncertainty/stance
+    - read: True=读取模式，False=写入模式（content为空时自动进入读取）
+    - limit: 读取时最多返回条数
+    """
+    if read or not content.strip():
+        # --- Read mode ---
+        try:
+            all_buckets = await bucket_mgr.list_all(include_archive=False)
+        except Exception as e:
+            return f"读取失败: {e}"
+        i_buckets = [
+            b for b in all_buckets
+            if "__i__" in b.get("metadata", {}).get("tags", [])
+        ]
+        if not i_buckets:
+            return "还没有任何自我认知记录。"
+        i_buckets.sort(
+            key=lambda b: b.get("metadata", {}).get("last_active", ""),
+            reverse=True,
+        )
+        i_buckets = i_buckets[:limit]
+        lines = [f"=== 自我认知（{len(i_buckets)} 条）==="]
+        for b in i_buckets:
+            meta = b.get("metadata", {})
+            tags = meta.get("tags") or []
+            aspect_tag = next((t.replace("aspect:", "") for t in tags if t.startswith("aspect:")), "")
+            ts = (meta.get("last_active") or "")[:10]
+            aspect_label = f"[{aspect_tag}] " if aspect_tag else ""
+            text = (b.get("content") or "").strip()
+            lines.append(f"\n{ts} {aspect_label}{b['id']}\n{text}")
+        return "\n".join(lines)
+    else:
+        # --- Write mode ---
+        tags = ["__i__"]
+        if aspect and aspect in _I_VALID_ASPECTS:
+            tags.append(f"aspect:{aspect}")
+        try:
+            bucket_id = await bucket_mgr.create(
+                content=content.strip(),
+                tags=tags,
+                importance=6,
+                domain=["self"],
+                valence=0.5,
+                arousal=0.3,
+                name=None,
+                bucket_type="permanent",
+            )
+        except Exception as e:
+            return f"写入失败: {e}"
+        aspect_label = f"[{aspect}] " if aspect else ""
+        return f"🪞 I {aspect_label}→ {bucket_id}"
+
+# =============================================================
 # /api/status — system status for Dashboard settings tab
 # /api/status — Dashboard 设置页用系统状态
 # =============================================================
@@ -2006,7 +2074,6 @@ if __name__ == "__main__":
     else:
         mcp.run(transport=transport)
 
-python
 @mcp.custom_route("/api/export/download", methods=["GET"])
 async def export_download(request):
     err = _require_auth(request)
