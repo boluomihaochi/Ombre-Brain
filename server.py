@@ -2017,7 +2017,41 @@ async def letter_read(
 
 
 # =============================================================
-# Tool 11: plan — 登记承诺/约定，不衰减
+# Tool 11: comment_bucket — 年轮评论，追加到源记忆的感受层
+# =============================================================
+@mcp.tool()
+async def comment_bucket(
+    bucket_id: str,
+    content: str,
+) -> str:
+    """
+    【Ombre Brain 年轮 评论 comment_bucket 感受 再读 旧记忆 annular】
+    在某个记忆桶上追加一条年轮评论——再读旧记忆时留下的新感受，
+    挂在源记忆的 metadata.comments 下，不作为独立桶浮现。
+    - bucket_id: 要评论的记忆桶ID
+    - content: 这次读到它时，又有什么感受
+    """
+    import frontmatter as _fm
+    file_path = bucket_mgr._find_bucket_file(bucket_id)
+    if not file_path:
+        return f"找不到桶 {bucket_id}"
+    try:
+        post = _fm.load(file_path)
+        comments = post.get("comments", []) or []
+        comments.append({
+            "ts": now_iso(),
+            "text": content.strip(),
+        })
+        post["comments"] = comments
+        from bucket_manager import _atomic_write
+        _atomic_write(file_path, _fm.dumps(post))
+    except Exception as e:
+        return f"写入年轮失败: {e}"
+    return f"🌿 年轮 +1 → {bucket_id}（共{len(comments)}条）"
+
+
+# =============================================================
+# Tool 12: plan — 登记承诺/约定，不衰减
 # =============================================================
 @mcp.tool()
 async def plan(
