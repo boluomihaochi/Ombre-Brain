@@ -1931,7 +1931,93 @@ async def read_email(
         output.append(f"📧 {i}. 发件人：{mail['from']}\n主题：{mail['subject']}\n内容：{mail['body']}")
     return "\n\n".join(output)
 # =============================================================
-# Tool 9: I — 自我认知存取
+# Tool 9 & 10: letter_write / letter_read — 永久信件
+# =============================================================
+@mcp.tool()
+async def letter_write(
+    content: str,
+    author: str = "ai",
+    title: str = "",
+) -> str:
+    """
+    【Ombre Brain 信件 letter 永久 写信 letter_write 小诺 听澍 对话记录 珍藏】
+    写一封永久的信，原文保存，不压缩、不合并、不衰减。
+    - content: 信的内容
+    - author: 署名，"ai"=听澍写的，"user"=小诺写的，或自定义
+    - title: 信件标题（可选）
+    """
+    from datetime import datetime as _dt
+    tags = ["__letter__", f"from:{author}"]
+    if title:
+        tags.append(f"title:{title[:60]}")
+    date_str = _dt.now().strftime("%Y-%m-%d")
+    full_content = f"# {title}\n\n{content}" if title else content
+    try:
+        bucket_id = await bucket_mgr.create(
+            content=full_content,
+            tags=tags,
+            importance=8,
+            domain=["letter"],
+            valence=0.75,
+            arousal=0.4,
+            name=(title[:40] if title else f"letter_{date_str}"),
+            bucket_type="permanent",
+        )
+    except Exception as e:
+        return f"写信失败: {e}"
+    author_label = "听澍" if author == "ai" else "小诺" if author == "user" else author
+    title_label = f"《{title}》" if title else ""
+    return f"✉️ {author_label}的信{title_label} → {bucket_id}"
+
+
+@mcp.tool()
+async def letter_read(
+    query: str = "",
+    limit: int = 10,
+    author: str = "",
+) -> str:
+    """
+    【Ombre Brain 信件 letter 读信 letter_read 历史 检索 珍藏对话】
+    读取历史信件，支持关键词检索和署名过滤。
+    - query: 关键词（可选，空则按时间倒序）
+    - limit: 返回数量（默认10）
+    - author: 按署名过滤，"ai"=听澍，"user"=小诺，空=全部
+    """
+    try:
+        all_buckets = await bucket_mgr.list_all(include_archive=False)
+    except Exception as e:
+        return f"读取失败: {e}"
+    letters = [
+        b for b in all_buckets
+        if "__letter__" in b.get("metadata", {}).get("tags", [])
+    ]
+    if author:
+        letters = [b for b in letters if f"from:{author}" in b.get("metadata", {}).get("tags", [])]
+    if query:
+        from rapidfuzz import fuzz as _fuzz
+        letters.sort(key=lambda b: _fuzz.partial_ratio(query, b.get("content", "")), reverse=True)
+    else:
+        letters.sort(key=lambda b: b.get("metadata", {}).get("created", ""), reverse=True)
+    letters = letters[:limit]
+    if not letters:
+        return "还没有任何信件。"
+    lines = [f"=== 信件（{len(letters)} 封）==="]
+    for b in letters:
+        meta = b.get("metadata", {})
+        tags = meta.get("tags", [])
+        from_tag = next((t.replace("from:", "") for t in tags if t.startswith("from:")), "")
+        title_tag = next((t.replace("title:", "") for t in tags if t.startswith("title:")), "")
+        author_label = "听澍" if from_tag == "ai" else "小诺" if from_tag == "user" else from_tag
+        ts = (meta.get("created") or "")[:10]
+        title_label = f"《{title_tag}》" if title_tag else ""
+        text = (b.get("content") or "").strip()
+        preview = text[:300] + ("…" if len(text) > 300 else "")
+        lines.append(f"\n{ts} {author_label}{title_label} [{b['id']}]\n{preview}")
+    return "\n".join(lines)
+
+
+# =============================================================
+# Tool 11: I — 自我认知存取
 # =============================================================
 _I_VALID_ASPECTS = {"nature", "values", "patterns", "limits", "becoming", "uncertainty", "stance"}
 
