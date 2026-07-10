@@ -29,6 +29,7 @@ import os
 import math
 import logging
 import shutil
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -39,6 +40,24 @@ from rapidfuzz import fuzz
 from utils import generate_bucket_id, sanitize_name, safe_path, now_iso
 
 logger = logging.getLogger("ombre_brain.bucket")
+
+
+def _atomic_write(file_path: str, content: str) -> None:
+    """Write content to file atomically using tmp file + fsync + os.replace."""
+    dir_path = os.path.dirname(os.path.abspath(file_path))
+    fd, tmp_path = tempfile.mkstemp(suffix=".tmp", dir=dir_path)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, file_path)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 class BucketManager:
@@ -183,8 +202,7 @@ class BucketManager:
         file_path = safe_path(target_dir, filename)
 
         try:
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(frontmatter.dumps(post))
+            _atomic_write(file_path, frontmatter.dumps(post))
         except OSError as e:
             logger.error(f"Failed to write bucket file / 写入桶文件失败: {file_path}: {e}")
             raise
@@ -287,8 +305,7 @@ class BucketManager:
         post["last_active"] = now_iso()
 
         try:
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(frontmatter.dumps(post))
+            _atomic_write(file_path, frontmatter.dumps(post))
         except OSError as e:
             logger.error(f"Failed to write bucket update / 写入桶更新失败: {file_path}: {e}")
             return False
@@ -301,8 +318,7 @@ class BucketManager:
         domain = post.get("domain", ["未分类"])
         if kwargs.get("pinned") and post.get("type") != "permanent":
             post["type"] = "permanent"
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(frontmatter.dumps(post))
+            _atomic_write(file_path, frontmatter.dumps(post))
             self._move_bucket(file_path, self.permanent_dir, domain)
 
         logger.info(f"Updated bucket / 更新记忆桶: {bucket_id}")
@@ -363,8 +379,7 @@ class BucketManager:
             post["last_active"] = now_iso()
             post["activation_count"] = post.get("activation_count", 0) + 1
 
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(frontmatter.dumps(post))
+            _atomic_write(file_path, frontmatter.dumps(post))
 
             # --- Time ripple: boost nearby memories within ±48h ---
             # --- 时间涟漪：±48小时内的记忆轻微唤醒 ---
@@ -413,8 +428,7 @@ class BucketManager:
                     current_count = post.get("activation_count", 1)
                     # Store as float for fractional increments; calculate_score handles it
                     post["activation_count"] = round(current_count + 0.3, 1)
-                    with open(file_path, "w", encoding="utf-8") as f:
-                        f.write(frontmatter.dumps(post))
+                    _atomic_write(file_path, frontmatter.dumps(post))
                     rippled += 1
                 except Exception:
                     continue
@@ -714,8 +728,7 @@ class BucketManager:
 
             # Update type marker then move file / 更新类型标记后移动文件
             post["type"] = "archived"
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(frontmatter.dumps(post))
+            _atomic_write(file_path, frontmatter.dumps(post))
 
             # Use shutil.move for cross-filesystem safety
             # 使用 shutil.move 保证跨文件系统安全
