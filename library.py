@@ -470,4 +470,17 @@ def register(mcp, config, require_auth):
                 return JSONResponse({"ok": True})
         return JSONResponse({"error": "没找到要删除的对象"}, status_code=404)
 
-    logger.info("Ombre Library: 9 tools + 4 routes registered")
+    @mcp.custom_route("/api/library/note", methods=["GET"])
+    async def api_library_note(request):
+        err = require_auth(request)
+        if err:
+            return err
+        name = _safe_name(request.query_params.get("name", ""))
+        path = _note_path(root, name)
+        if not os.path.exists(path):
+            return JSONResponse({"error": "没有笔记"}, status_code=404)
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return JSONResponse({"content": content})
+
+    logger.info("Ombre Library: 9 tools + 5 routes registered")

@@ -130,6 +130,8 @@ class BucketManager:
         pinned: bool = False,
         protected: bool = False,
         feeling: str = "",
+        meaning: str = "",
+        media: str = "",
     ) -> str:
         """
         Create a new memory bucket, return bucket ID.
@@ -174,6 +176,10 @@ class BucketManager:
             metadata["protected"] = True
         if feeling:
             metadata["feeling"] = feeling.strip()
+        if meaning:
+            metadata["meaning"] = meaning.strip()
+        if media:
+            metadata["media"] = media.strip()
 
         # --- Assemble Markdown file (frontmatter + body) ---
         # --- 组装 Markdown 文件 ---

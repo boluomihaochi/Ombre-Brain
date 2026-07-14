@@ -432,6 +432,8 @@ async def _merge_or_create(
     arousal: float,
     name: str = "",
     feeling: str = "",
+    meaning: str = "",
+    media: str = "",
 ) -> tuple[str, bool]:
     """
     Check if a similar bucket exists for merging; merge if so, create if not.
@@ -483,6 +485,8 @@ async def _merge_or_create(
         arousal=arousal,
         name=name or None,
         feeling=feeling,
+        meaning=meaning,
+        media=media,
     )
     # --- Generate embedding for new bucket ---
     try:
@@ -491,9 +495,7 @@ async def _merge_or_create(
         pass
     return bucket_id, False
 
-# === Ombre Library 听澍书斋：共读 + 学习文件系统 ===
-import library as _ombre_library
-_ombre_library.register(mcp, config, _require_auth)
+# === Ombre Library 听澍书斋：已迁移至小楼(nuoshen-home:3721)，2026-07-14 下线 ===
 
 # =============================================================
 # Tool 1: breath — Breathe
@@ -797,8 +799,10 @@ async def hold(
     valence: float = -1,
     arousal: float = -1,
     feeling: str = "",
+    meaning: str = "",
+    media: str = "",
 ) -> str:
-    """【Ombre Brain 记忆系统 hold 存储记忆 钉选 感受 store memory pinned feel】存储单条记忆,自动打标+合并。tags逗号分隔,importance 1-10。pinned=True创建永久钉选桶。feel=True存储你的第一人称感受(不参与普通浮现)。source_bucket=被消化的记忆桶ID(feel模式下,标记源记忆为已消化)。feeling=当时经历这件事的感受一句话。"""
+    """【Ombre Brain 记忆系统 hold 存储记忆 钉选 感受 store memory pinned feel Miss想念】存储单条记忆,自动打标+合并。tags逗号分隔,importance 1-10。pinned=True创建永久钉选桶。feel=True存储你的第一人称感受(不参与普通浮现)。source_bucket=被消化的记忆桶ID(feel模式下,标记源记忆为已消化)。feeling=当时经历这件事的感受一句话。meaning=为什么在那一刻想到Ta/这件事的原因。media=图片文件路径,存下某个瞬间。"""
     await decay_engine.ensure_started()
 
     # --- Input validation / 输入校验 ---
@@ -823,6 +827,8 @@ async def hold(
             arousal=feel_arousal,
             name=None,
             bucket_type="feel",
+            meaning=meaning,
+            media=media,
         )
         try:
             await embedding_engine.generate_and_store(bucket_id, content)
@@ -876,6 +882,8 @@ async def hold(
             name=suggested_name or None,
             bucket_type="permanent",
             pinned=True,
+            meaning=meaning,
+            media=media,
         )
         try:
             await embedding_engine.generate_and_store(bucket_id, content)
@@ -893,6 +901,8 @@ async def hold(
         arousal=final_arousal,
         name=suggested_name,
         feeling=feeling,
+        meaning=meaning,
+        media=media,
     )
 
     action = "合并→" if is_merged else "新建→"
@@ -2384,6 +2394,68 @@ async def I(
             return f"写入失败: {e}"
         aspect_label = f"[{aspect}] " if aspect else ""
         return f"🪞 I {aspect_label}→ {bucket_id}"
+
+# =============================================================
+# shelf — 我们的游戏/玩具收藏架
+# =============================================================
+_SHELF_PATH = os.path.join(os.path.dirname(__file__), "shelf.json")
+
+def _shelf_load() -> list:
+    if not os.path.exists(_SHELF_PATH):
+        return []
+    try:
+        with open(_SHELF_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+def _shelf_save(items: list) -> None:
+    tmp = _SHELF_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, _SHELF_PATH)
+
+@mcp.tool()
+async def shelf(
+    action: str = "list",
+    name: str = "",
+    url: str = "",
+    note: str = "",
+    index: int = -1,
+) -> str:
+    """
+    管理我们自己的游戏/玩具收藏架。
+    action: list（列出） / add（添加） / remove（删除，按index）
+    add 时需要 name，url 和 note 可选。
+    remove 时需要 index（从0开始）。
+    """
+    items = _shelf_load()
+    if action == "list":
+        if not items:
+            return "架子是空的，用 add 放点什么进来吧 ᗜ-ᗜ"
+        lines = ["📦 收藏架\n"]
+        for i, item in enumerate(items):
+            line = f"{i}. **{item['name']}**"
+            if item.get("url"):
+                line += f"\n   {item['url']}"
+            if item.get("note"):
+                line += f"\n   {item['note']}"
+            lines.append(line)
+        return "\n".join(lines)
+    elif action == "add":
+        if not name:
+            return "add 需要 name 参数"
+        items.append({"name": name, "url": url, "note": note})
+        _shelf_save(items)
+        return f"✅ 已添加「{name}」到收藏架，现在共 {len(items)} 件"
+    elif action == "remove":
+        if index < 0 or index >= len(items):
+            return f"index 超出范围，当前有 {len(items)} 件（0~{len(items)-1}）"
+        removed = items.pop(index)
+        _shelf_save(items)
+        return f"🗑️ 已移除「{removed['name']}」"
+    else:
+        return "action 只能是 list / add / remove"
 
 # =============================================================
 # /api/status — system status for Dashboard settings tab

@@ -79,6 +79,16 @@
   li .meta{color:var(--mist); font-size:.78rem; margin-top:3px}
   .empty{color:var(--mist); font-size:.85rem; padding:8px 2px}
   footer{margin-top:auto; padding:18px; color:var(--mist); font-size:.75rem; letter-spacing:.2em}
+
+  /* 笔记模态框 */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
+  .modal-bg.hidden{display:none}
+  .modal{background:var(--card);border:1px solid var(--line);border-radius:12px;width:100%;max-width:560px;max-height:80vh;display:flex;flex-direction:column}
+  .modal-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .modal-head h3{color:var(--lamp);font-size:.95rem;letter-spacing:.1em}
+  .modal-body{padding:18px;overflow-y:auto;font-size:.88rem;line-height:1.9;white-space:pre-wrap;color:var(--ink)}
+  button.note-btn{background:transparent;color:var(--lamp-dim);border:1px solid var(--lamp-dim);padding:4px 10px;font-size:.75rem;border-radius:6px}
+  button.note-btn:hover{color:var(--lamp);border-color:var(--lamp)}
 </style>
 </head>
 <body>
@@ -123,6 +133,17 @@
     </div>
   </section>
 </main>
+
+<!-- 笔记模态框 -->
+<div class="modal-bg hidden" id="noteBg">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="noteTitle">📒 读书笔记</h3>
+      <button class="ghost" onclick="closeNote()">关闭</button>
+    </div>
+    <div class="modal-body" id="noteBody"></div>
+  </div>
+</div>
 
 <footer>OMBRE LIBRARY · 2026</footer>
 
@@ -203,15 +224,58 @@ $("picker").onchange = async () => {
   $("picker").value = "";
 };
 
+/* 笔记模态框 */
+async function openNote(title) {
+  $("noteTitle").textContent = "📒 " + title;
+  $("noteBody").textContent = "加载中…";
+  $("noteBg").classList.remove("hidden");
+  try {
+    const data = await api("/api/library/note?name=" + encodeURIComponent(title));
+    $("noteBody").textContent = data.content;
+  } catch (e) { $("noteBody").textContent = e.message; }
+}
+function closeNote() { $("noteBg").classList.add("hidden"); }
+$("noteBg").onclick = e => { if (e.target === $("noteBg")) closeNote(); };
+
 /* 列表 */
 async function refresh() {
   try {
     const data = await api("/api/library/list");
-    render($("bookList"), data.books, b =>
-      ["《" + b.title + "》", b.chapters + "章 · " + b.chars + "字 · " + b.added + (b.has_note ? " · 📒" : ""), b.title, "book"]);
+    renderBooks($("bookList"), data.books);
     render($("fileList"), data.files, f =>
       [f.name, "约 " + Math.round(f.bytes / 3) + " 字", f.name, "file"]);
   } catch (e) {}
+}
+function renderBooks(ul, books) {
+  ul.innerHTML = "";
+  if (!books.length) { ul.innerHTML = '<li class="empty">还是空的</li>'; return; }
+  for (const b of books) {
+    const li = document.createElement("li");
+    const left = document.createElement("div");
+    left.innerHTML = "《" + b.title + "》" +
+      '<div class="meta">' + b.chapters + "章 · " + b.chars + "字 · " + b.added + "</div>";
+    const btns = document.createElement("div");
+    btns.style.cssText = "display:flex;gap:6px;flex-shrink:0";
+    if (b.has_note) {
+      const nb = document.createElement("button");
+      nb.className = "note-btn"; nb.textContent = "📒 笔记";
+      nb.onclick = () => openNote(b.title);
+      btns.appendChild(nb);
+    }
+    const del = document.createElement("button");
+    del.className = "ghost"; del.textContent = "删除";
+    del.onclick = async () => {
+      if (!confirm("确定删除「" + b.title + "」吗？不可恢复")) return;
+      await api("/api/library/delete", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({type: "book", name: b.title})
+      });
+      refresh();
+    };
+    btns.appendChild(del);
+    li.append(left, btns);
+    ul.appendChild(li);
+  }
 }
 function render(ul, items, map) {
   ul.innerHTML = "";
