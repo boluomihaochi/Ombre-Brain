@@ -224,12 +224,6 @@ def start_scheduler() -> None:
 def register_tools(mcp) -> None:
 
     @mcp.tool()
-    async def seeyou(note: str = "", expected_back_minutes: float = 0) -> str:
-        """【Ombre Brain 推送系统 seeyou 离开 告别 记录去向 leave goodbye away】小诺说要离开/去做某事时调用，记录精确离开时间。note=她去干嘛(如'上实验课'),expected_back_minutes=预计多少分钟后回来(可选)。返回当前时间。"""
-        result = mark_away(note, expected_back_minutes)
-        return result + f"\n[当前时间 {_fmt(_now())}]"
-
-    @mcp.tool()
     async def remind(message: str, minutes: float = 0, at: str = "") -> str:
         """【Ombre Brain 推送系统 remind 闹钟 定时提醒 Telegram推送 alarm reminder push】设置一次性事件闹钟,到点通过Telegram发送给小诺。message=提醒内容。二选一: minutes=多少分钟后提醒; at=具体时间('HH:MM'指最近的该时刻,或'YYYY-MM-DD HH:MM')。闹钟落盘,服务重启不丢失。"""
         now = _now()
